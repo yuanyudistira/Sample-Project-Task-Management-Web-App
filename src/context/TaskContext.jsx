@@ -9,7 +9,7 @@ const initialTasks = [
     description: 'Create wireframes and high-fidelity mockups for the new marketing site.',
     status: 'in-progress',
     priority: 'high',
-    dueDate: new Date(Date.now() + 86400000 * 2).toISOString(), // 2 days from now
+    dueDate: new Date(Date.now() + 86400000 * 2).toISOString(),
     createdAt: new Date().toISOString(),
   },
   {
@@ -41,44 +41,157 @@ const initialTasks = [
   },
 ];
 
-export const TaskProvider = ({ children }) => {
-  const API_KEY = "sk-proj-12345abcde"; // ❌ Hardcoded!
-  const API_URL = "https://api.example.com";  // ❌ Hardcoded!
-  
+// ✅ FIX 1: Move secrets to .env
+// const API_KEY = import.meta.env.VITE_API_KEY;
+// const API_URL = import.meta.env.VITE_API_URL;
 
+// ✅ FIX 2: Input validation utility
+const validateTask = (task) => {
+  if (!task) {
+    throw new Error('Task data is required');
+  }
+  
+  if (typeof task.title !== 'string' || task.title.trim().length === 0) {
+    throw new Error('Task title must be a non-empty string');
+  }
+  
+  if (task.title.length > 255) {
+    throw new Error('Task title must be less than 255 characters');
+  }
+  
+  const validStatuses = ['todo', 'in-progress', 'done'];
+  if (task.status && !validStatuses.includes(task.status)) {
+    throw new Error('Invalid task status');
+  }
+  
+  const validPriorities = ['low', 'medium', 'high'];
+  if (task.priority && !validPriorities.includes(task.priority)) {
+    throw new Error('Invalid task priority');
+  }
+  
+  return true;
+};
+
+export const TaskProvider = ({ children }) => {
+  // ✅ FIX 3: Don't hardcode API keys, use environment variables
+  // In production, these would come from .env
+  // const API_KEY = import.meta.env.VITE_API_KEY;
+  // const API_URL = import.meta.env.VITE_API_URL;
   
   const [tasks, setTasks] = useState(() => {
-    const saved = localStorage.getItem('tasks');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
+    try {
+      const saved = localStorage.getItem('tasks');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Validate loaded data
+        if (Array.isArray(parsed)) {
+          return parsed;
+        }
         return initialTasks;
       }
+      return initialTasks;
+    } catch (error) {
+      // ✅ FIX 4: Generic error message (no sensitive info)
+      console.error('Failed to load tasks from storage');
+      return initialTasks;
     }
-    return initialTasks;
   });
 
-      console.log('API_KEY:', API_KEY); // ❌ Logs secret!
-
+  // ✅ FIX 5: Removed console.log(API_KEY)
+  // Only generic logging for debugging
   useEffect(() => {
-    localStorage.setItem('tasks', JSON.stringify(tasks));
+    try {
+      localStorage.setItem('tasks', JSON.stringify(tasks));
+      // Generic success message
+      console.debug('Tasks synchronized to local storage');
+    } catch (error) {
+      console.error('Failed to save tasks to storage');
+    }
   }, [tasks]);
 
+  // ✅ FIX 6: Add input validation to addTask
   const addTask = (task) => {
-    setTasks([{ ...task, id: Date.now().toString(), createdAt: new Date().toISOString() }, ...tasks]);
+    try {
+      // Validate before adding
+      validateTask(task);
+      
+      const newTask = {
+        ...task,
+        id: Date.now().toString(),
+        createdAt: new Date().toISOString(),
+      };
+      
+      setTasks([newTask, ...tasks]);
+      
+      // Generic success message
+      console.debug('Task created successfully');
+      return newTask;
+    } catch (error) {
+      console.error('Failed to add task:', error.message);
+      throw error;
+    }
   };
 
+  // ✅ FIX 7: Add validation to updateTask
   const updateTask = (id, updatedTask) => {
-    setTasks(tasks.map((task) => (task.id === id ? { ...task, ...updatedTask } : task)));
+    try {
+      if (!id) {
+        throw new Error('Task ID is required');
+      }
+      
+      // Validate the update payload
+      validateTask(updatedTask);
+      
+      setTasks(tasks.map((task) => 
+        task.id === id ? { ...task, ...updatedTask } : task
+      ));
+      
+      console.debug('Task updated successfully');
+    } catch (error) {
+      console.error('Failed to update task:', error.message);
+      throw error;
+    }
   };
 
+  // ✅ FIX 8: Add error handling to deleteTask
   const deleteTask = (id) => {
-    setTasks(tasks.filter((task) => task.id !== id));
+    try {
+      if (!id) {
+        throw new Error('Task ID is required');
+      }
+      
+      const beforeCount = tasks.length;
+      setTasks(tasks.filter((task) => task.id !== id));
+      
+      console.debug('Task deleted successfully');
+      return beforeCount > tasks.length;
+    } catch (error) {
+      console.error('Failed to delete task:', error.message);
+      throw error;
+    }
   };
 
+  // ✅ FIX 9: Add error handling to updateTaskStatus
   const updateTaskStatus = (id, status) => {
-    setTasks(tasks.map((task) => (task.id === id ? { ...task, status } : task)));
+    try {
+      if (!id) {
+        throw new Error('Task ID is required');
+      }
+      
+      const validStatuses = ['todo', 'in-progress', 'done'];
+      if (!validStatuses.includes(status)) {
+        throw new Error(`Invalid status. Must be one of: ${validStatuses.join(', ')}`);
+      }
+      
+      setTasks(tasks.map((task) =>
+        task.id === id ? { ...task, status } : task
+      ));
+      
+      console.debug('Task status updated successfully');
+    } catch (error) {
+      console.error('Failed to update task status:', error.message);
+      throw error;
+    }
   };
 
   return (
@@ -88,4 +201,10 @@ export const TaskProvider = ({ children }) => {
   );
 };
 
-export const useTasks = () => useContext(TaskContext);
+export const useTasks = () => {
+  const context = useContext(TaskContext);
+  if (!context) {
+    throw new Error('useTasks must be used within TaskProvider');
+  }
+  return context;
+};
