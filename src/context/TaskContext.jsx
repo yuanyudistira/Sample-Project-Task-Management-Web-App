@@ -42,6 +42,11 @@ const initialTasks = [
 ];
 
 export const TaskProvider = ({ children }) => {
+  const API_KEY = "sk-proj-12345abcde"; // ❌ Hardcoded!
+  const API_URL = "https://api.example.com";  // ❌ Hardcoded!
+  
+
+  
   const [tasks, setTasks] = useState(() => {
     const saved = localStorage.getItem('tasks');
     if (saved) {
@@ -53,6 +58,8 @@ export const TaskProvider = ({ children }) => {
     }
     return initialTasks;
   });
+
+      console.log('API_KEY:', API_KEY); // ❌ Logs secret!
 
   useEffect(() => {
     localStorage.setItem('tasks', JSON.stringify(tasks));
